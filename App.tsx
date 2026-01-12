@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Calculator, ChevronRight, HelpCircle, FileText, PenLine, ArrowLeft, Sun, Moon } from 'lucide-react';
-import { GoogleGenAI, Type } from "@google/genai";
 import { MemberSection } from './components/MemberSection';
 import { ItemSection } from './components/ItemSection';
 import { SummarySection } from './components/SummarySection';
@@ -304,6 +303,12 @@ const App: React.FC = () => {
     setIsScanning(true);
     let targetPayerId = overridePayerId || members.find(m => m.isPayer)?.id || members[0]?.id || '';
     try {
+      const genaiModule = await import("@google/genai").catch(() => null);
+      if (!genaiModule) {
+        console.error('Missing @google/genai dependency. Skipping receipt scan.');
+        return;
+      }
+      const { GoogleGenAI, Type } = genaiModule;
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const allNewItems: Item[] = [];
