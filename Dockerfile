@@ -3,7 +3,11 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install --no-audit --no-fund --omit=optional
+RUN if [ -f package-lock.json ]; then \
+      npm ci --no-audit --no-fund --omit=optional; \
+    else \
+      npm install --no-audit --no-fund --omit=optional; \
+    fi
 
 COPY . .
 RUN npm run build
