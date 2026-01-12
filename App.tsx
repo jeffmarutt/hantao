@@ -303,6 +303,7 @@ const App: React.FC = () => {
     setIsScanning(true);
     let targetPayerId = overridePayerId || members.find(m => m.isPayer)?.id || members[0]?.id || '';
     try {
+
       const genaiModule = await import("@google/genai").catch(() => null);
       if (!genaiModule) {
         console.error('Missing @google/genai dependency. Skipping receipt scan.');
