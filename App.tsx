@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Calculator, ChevronRight, HelpCircle, FileText, PenLine, ArrowLeft, Sun, Moon } from 'lucide-react';
-import { GoogleGenAI, Type } from "@google/genai";
 import { MemberSection } from './components/MemberSection';
 import { ItemSection } from './components/ItemSection';
 import { SummarySection } from './components/SummarySection';
@@ -304,7 +303,20 @@ const App: React.FC = () => {
     setIsScanning(true);
     let targetPayerId = overridePayerId || members.find(m => m.isPayer)?.id || members[0]?.id || '';
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const genaiModule = await import(
+        /* @vite-ignore */ "https://esm.sh/@google/genai"
+      ).catch(() => null);
+      if (!genaiModule) {
+        console.error('Unable to load @google/genai from CDN. Skipping receipt scan.');
+        return;
+      }
+      const { GoogleGenAI, Type } = genaiModule;
+      const apiKey = import.meta.env.GEMINI_API_KEY || '';
+      if (!apiKey) {
+        console.error('Missing GEMINI_API_KEY. Skipping receipt scan.');
+        return;
+      }
+      const ai = new GoogleGenAI({ apiKey });
       
       const allNewItems: Item[] = [];
       const newReceipts: Receipt[] = [];
