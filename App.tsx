@@ -286,94 +286,97 @@ const App: React.FC = () => {
   const handleScanReceipts = async (files: File[], overridePayerId?: string) => {
     setIsScanning(true);
     let targetPayerId = overridePayerId || members.find(m => m.isPayer)?.id || members[0]?.id || '';
+    
     try {
-      // FIX: ใช้ชื่อ Library ให้ตรงกับ package.json
-      const genaiModule = await import("@google/generative-ai").catch(() => null);
-      if (!genaiModule) {
-        console.error('Missing @google/generative-ai dependency.');
+      const genaiModule = await import("@google/generative-ai");
+      const { GoogleGenerativeAI, SchemaType } = genaiModule;
+      
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        alert("Error: API Key is missing. Please check your Environment Variables.");
+        setIsScanning(false);
         return;
       }
-      
-      const { GoogleGenerativeAI, SchemaType } = genaiModule;
-      // FIX: ลบการประกาศซ้ำ และใช้ Class ที่ถูกต้อง
-      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
-      
+
+      const genAI = new GoogleGenerativeAI(apiKey);
       const allNewItems: Item[] = [];
       const newReceipts: Receipt[] = [];
 
       for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const receiptId = crypto.randomUUID();
-          const base64Data = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-            reader.readAsDataURL(file);
-          });
+        const file = files[i];
+        const receiptId = crypto.randomUUID();
+        const base64Data = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(file);
+        });
 
-          // FIX: ปรับรูปแบบการเรียกใช้ model.generateContent ให้เสถียรสำหรับ 1.5-flash
-          const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            generationConfig: {
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: SchemaType.OBJECT,
-                properties: {
+        const model = genAI.getGenerativeModel({ 
+          model: "gemini-1.5-flash",
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: SchemaType.OBJECT,
+              properties: {
+                items: {
+                  type: SchemaType.ARRAY,
                   items: {
-                    type: SchemaType.ARRAY,
-                    items: {
-                      type: SchemaType.OBJECT,
-                      properties: {
-                        name: { type: SchemaType.STRING },
-                        price: { type: SchemaType.NUMBER },
-                        quantity: { type: SchemaType.NUMBER }
-                      }
+                    type: SchemaType.OBJECT,
+                    properties: {
+                      name: { type: SchemaType.STRING },
+                      price: { type: SchemaType.NUMBER },
+                      quantity: { type: SchemaType.NUMBER }
                     }
-                  },
-                  grandTotal: { type: SchemaType.NUMBER },
-                  vatRate: { type: SchemaType.NUMBER },
-                  serviceChargeRate: { type: SchemaType.NUMBER }
-                }
+                  }
+                },
+                grandTotal: { type: SchemaType.NUMBER },
+                vatRate: { type: SchemaType.NUMBER },
+                serviceChargeRate: { type: SchemaType.NUMBER }
               }
             }
-          });
-
-          const result = await model.generateContent([
-            { inlineData: { mimeType: file.type, data: base64Data } },
-            { text: "Extract food items with quantity and unit price. Return JSON." }
-          ]);
-
-          const response = await result.response;
-          const data = JSON.parse(response.text());
-          
-          const detectedVat = data.vatRate ?? 7;
-          const detectedSc = data.serviceChargeRate ?? 0;
-          
-          newReceipts.push({ 
-            id: receiptId, 
-            name: `Scan ${i+1}`, 
-            scRate: detectedSc, 
-            vatRate: detectedVat, 
-            excludeVat: detectedVat === 0,
-            excludeServiceCharge: detectedSc === 0,
-            manualTotal: data.grandTotal 
-          });
-
-          if (Array.isArray(data.items)) {
-            allNewItems.push(...data.items.map((item: any) => ({
-              id: crypto.randomUUID(),
-              name: item.name,
-              price: item.price,
-              quantity: item.quantity || 1,
-              assignedMemberIds: [],
-              paidBy: targetPayerId,
-              receiptId: receiptId
-            })));
           }
+        });
+
+        const result = await model.generateContent([
+          { inlineData: { mimeType: file.type, data: base64Data } },
+          { text: "Extract food items with quantity and unit price. Return JSON format." }
+        ]);
+
+        const response = await result.response;
+        const data = JSON.parse(response.text());
+        
+        const detectedVat = data.vatRate ?? 7;
+        const detectedSc = data.serviceChargeRate ?? 0;
+        
+        newReceipts.push({ 
+          id: receiptId, 
+          name: `ใบเสร็จที่ ${i+1}`, 
+          scRate: detectedSc, 
+          vatRate: detectedVat, 
+          excludeVat: detectedVat === 0,
+          excludeServiceCharge: detectedSc === 0,
+          manualTotal: data.grandTotal 
+        });
+
+        if (Array.isArray(data.items)) {
+          allNewItems.push(...data.items.map((item: any) => ({
+            id: crypto.randomUUID(),
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity || 1,
+            assignedMemberIds: [],
+            paidBy: targetPayerId,
+            receiptId: receiptId
+          })));
+        }
       }
+
       setReceipts(prev => (prev.length === 1 && prev[0].id === 'manual-default' && items.length === 0) ? [...newReceipts] : [...prev, ...newReceipts]);
       setItems(prev => [...prev, ...allNewItems]);
+
     } catch (error) { 
-      console.error('Error scanning:', error); 
+      console.error('Error scanning receipt:', error);
+      alert('Scanning failed. Please check your internet or API key.');
     } finally { 
       setIsScanning(false); 
     }
