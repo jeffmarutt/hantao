@@ -4,7 +4,6 @@ WORKDIR /app
 
 COPY package.json package-lock.json* ./
 
-
 RUN if [ -f package-lock.json ]; then \
       npm ci --no-audit --no-fund; \
     else \
@@ -12,6 +11,7 @@ RUN if [ -f package-lock.json ]; then \
     fi
 
 COPY . .
+
 RUN npm run build
 
 FROM nginx:1.27-alpine
