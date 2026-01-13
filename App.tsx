@@ -309,8 +309,10 @@ const App: React.FC = () => {
         console.error('Missing @google/genai dependency. Skipping receipt scan.');
         return;
       }
-      const { GoogleGenAI, Type } = genaiModule;
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const { GoogleGenerativeAI, Type } = genaiModule;
+const ai = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+      // ใช้ชื่อตัวแปรที่ตั้งไว้ใน Easypanel
+const ai = new GoogleGenAI(import.meta.env.VITE_GEMINI_API_KEY);
       
       const allNewItems: Item[] = [];
       const newReceipts: Receipt[] = [];
@@ -324,7 +326,7 @@ const App: React.FC = () => {
             reader.readAsDataURL(file);
           });
           const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-1.5-flash',
             contents: { 
               parts: [
                 { inlineData: { mimeType: file.type || 'image/jpeg', data: base64Data } }, 
