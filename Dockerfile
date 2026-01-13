@@ -3,15 +3,15 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
+
 RUN if [ -f package-lock.json ]; then \
-      npm ci --no-audit --no-fund --omit=optional; \
+      npm ci --no-audit --no-fund; \
     else \
-      npm install --no-audit --no-fund --omit=optional; \
+      npm install --no-audit --no-fund; \
     fi
 
 COPY . .
-ARG VITE_GEMINI_API_KEY
-ENV VITE_GEMINI_API_KEY=$VITE_GEMINI_API_KEY
+
 RUN npm run build
 
 FROM nginx:1.27-alpine
